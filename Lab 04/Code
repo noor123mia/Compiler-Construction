@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Text.RegularExpressions;
+using System.Collections;
 
 namespace LexicalAnalyzerConsole
 {
@@ -8,102 +9,250 @@ namespace LexicalAnalyzerConsole
     {
         static void Main(string[] args)
         {
-            // Taking user input from the console
-            Console.WriteLine("Enter the code to analyze (Press Enter twice to finish):");
-            string userInput = "";
+            Console.WriteLine("=== Lexical Analyzer ===");
+            string userInput = GetUserInput();
+            ProcessLexicalAnalysis(userInput);
+            Console.WriteLine("\nPress any key to exit...");
+            Console.ReadKey();
+        }
+
+        static string GetUserInput()
+        {
+            Console.WriteLine("Enter source code (press Enter twice to finish):");
+            string input = "";
             string line;
-            while ((line = Console.ReadLine()) != "")
+            int emptyLineCount = 0;
+
+            while (true)
             {
-                userInput += line + "\n"; // Collecting multi-line input
-            }
-
-            // List of keywords to separate keywords from variables
-            List<String> keywordList = new List<String>
-            {
-                "int", "float", "while", "main", "if", "else", "new"
-            };
-
-            // Regular Expressions for Variables, Constants, Operators, Special Characters
-            Regex variable_Reg = new Regex(@"^[A-Za-z|_][A-Za-z|0-9]*$");
-            Regex constants_Reg = new Regex(@"^[0-9]+([.][0-9]+)?([e]([+|-])?[0-9]+)?$");
-            Regex operators_Reg = new Regex(@"^[-*+/><&&||=]$");
-            Regex special_Reg = new Regex(@"^[.,'\[\]{}();:?]$");
-
-            // Initialize the buffers
-            char[] inputBuffer = userInput.ToCharArray();  // Input buffer with all characters
-            List<char> lexemeBuffer = new List<char>();    // Second buffer (used to hold current lexeme)
-
-            // Pointer for inputBuffer
-            int bufferPointer = 0;
-            int line_num = 1;
-
-            // Loop to process the input
-            while (bufferPointer < inputBuffer.Length)
-            {
-                char currentChar = inputBuffer[bufferPointer];
-
-                // Process the lexeme if the character is not a space or newline
-                if (!char.IsWhiteSpace(currentChar))
+                line = Console.ReadLine();
+                if (string.IsNullOrWhiteSpace(line))
                 {
-                    lexemeBuffer.Clear(); // Clear the lexeme buffer for a new lexeme
-
-                    // Process the current character and continue reading if part of a lexeme
-                    while (bufferPointer < inputBuffer.Length && !char.IsWhiteSpace(inputBuffer[bufferPointer]) && inputBuffer[bufferPointer] != '\n')
-                    {
-                        lexemeBuffer.Add(inputBuffer[bufferPointer]);
-                        bufferPointer++;
-                    }
-
-                    string lexeme = new string(lexemeBuffer.ToArray());
-
-                    // Match and print the type of lexeme (Keyword, Variable, Constant, Operator, or Special Character)
-                    Match match_Variable = variable_Reg.Match(lexeme);
-                    Match match_Constant = constants_Reg.Match(lexeme);
-                    Match match_Operator = operators_Reg.Match(lexeme);
-                    Match match_Special = special_Reg.Match(lexeme);
-
-                    if (match_Variable.Success)
-                    {
-                        if (keywordList.Contains(lexeme)) // It's a keyword
-                        {
-                            Console.WriteLine($"<keyword, {lexeme}>");
-                        }
-                        else // It's a variable
-                        {
-                            Console.WriteLine($"<var, {lexeme}>");
-                        }
-                    }
-                    else if (match_Constant.Success)
-                    {
-                        Console.WriteLine($"<digit, {lexeme}>");
-                    }
-                    else if (match_Operator.Success)
-                    {
-                        Console.WriteLine($"<op, {lexeme}>");
-                    }
-                    else if (match_Special.Success)
-                    {
-                        Console.WriteLine($"<punc, {lexeme}>");
-                    }
-                    else
-                    {
-                        Console.WriteLine($"<invalid, {lexeme}>");
-                    }
-                }
-                else if (currentChar == '\n')
-                {
-                    // Handle newline, increment line number
-                    line_num++;
-                    bufferPointer++;
+                    emptyLineCount++;
+                    if (emptyLineCount >= 2)
+                        break;
                 }
                 else
                 {
-                    // If it's a space, just move the pointer
-                    bufferPointer++;
+                    emptyLineCount = 0;
+                }
+                input += line + "\n";
+            }
+            return input;
+        }
+
+        static void ProcessLexicalAnalysis(string userInput)
+        {
+            List<string> keywordList = new List<string> { "int", "float", "while", "main", "if", "else", "new" };
+
+            string[,] SymbolTable = new string[20, 5];
+            int row = 1;
+            int count = 1;
+
+            Regex variableReg = new Regex(@"^[A-Za-z_][A-Za-z0-9]*$");
+            Regex constantReg = new Regex(@"^[0-9]+(\.[0-9]+)?$");
+            Regex operatorReg = new Regex(@"^[-*+/><=]$");
+            Regex specialReg = new Regex(@"^[.,;(){}\[\]]$");
+
+            ArrayList finalArray = new ArrayList();
+            ArrayList finalArrayc = new ArrayList();
+            ArrayList tempArray = new ArrayList();
+            List<string> tokensList = new List<string>();
+            List<string> symbolTableOutput = new List<string>();
+            List<int> lineNumbersPerLine = new List<int>();
+
+            char[] charinput = userInput.ToCharArray();
+            int currentLineNumber = 1;
+
+            for (int itr = 0; itr < charinput.Length; itr++)
+            {
+                Match matchVariable = variableReg.Match(charinput[itr] + "");
+                Match matchConstant = constantReg.Match(charinput[itr] + "");
+                Match matchOperator = operatorReg.Match(charinput[itr] + "");
+                Match matchSpecial = specialReg.Match(charinput[itr] + "");
+
+                if (matchVariable.Success || matchConstant.Success || matchOperator.Success ||
+                    matchSpecial.Success || charinput[itr].Equals(' '))
+                {
+                    tempArray.Add(charinput[itr]);
+                }
+
+                if (charinput[itr].Equals('\n'))
+                {
+                    if (tempArray.Count != 0)
+                    {
+                        string fin = "";
+                        for (int j = 0; j < tempArray.Count; j++)
+                        {
+                            fin += tempArray[j];
+                        }
+                        finalArray.Add(fin);
+                        lineNumbersPerLine.Add(currentLineNumber); // Save correct line number
+                        tempArray.Clear();
+                    }
+                    currentLineNumber++;
                 }
             }
 
-            Console.ReadKey();
+            if (tempArray.Count != 0)
+            {
+                string fin = "";
+                for (int j = 0; j < tempArray.Count; j++)
+                {
+                    fin += tempArray[j];
+                }
+                finalArray.Add(fin);
+                lineNumbersPerLine.Add(currentLineNumber);
+                tempArray.Clear();
+            }
+
+            for (int i = 0; i < finalArray.Count; i++)
+            {
+                string line = finalArray[i].ToString();
+                int actualLineNum = lineNumbersPerLine[i];
+                char[] lineChar = line.ToCharArray();
+                finalArrayc.Clear();
+
+                for (int itr = 0; itr < lineChar.Length; itr++)
+                {
+                    Match matchVariable = variableReg.Match(lineChar[itr] + "");
+                    Match matchConstant = constantReg.Match(lineChar[itr] + "");
+                    Match matchOperator = operatorReg.Match(lineChar[itr] + "");
+                    Match matchSpecial = specialReg.Match(lineChar[itr] + "");
+
+                    if (matchVariable.Success || matchConstant.Success)
+                    {
+                        tempArray.Add(lineChar[itr]);
+                    }
+
+                    if (lineChar[itr].Equals(' '))
+                    {
+                        if (tempArray.Count != 0)
+                        {
+                            string fin = "";
+                            for (int j = 0; j < tempArray.Count; j++)
+                            {
+                                fin += tempArray[j];
+                            }
+                            finalArrayc.Add(fin);
+                            tempArray.Clear();
+                        }
+                    }
+
+                    if (matchOperator.Success || matchSpecial.Success)
+                    {
+                        if (tempArray.Count != 0)
+                        {
+                            string fin = "";
+                            for (int j = 0; j < tempArray.Count; j++)
+                            {
+                                fin += tempArray[j];
+                            }
+                            finalArrayc.Add(fin);
+                            tempArray.Clear();
+                        }
+                        finalArrayc.Add(lineChar[itr].ToString());
+                    }
+                }
+
+                if (tempArray.Count != 0)
+                {
+                    string fin = "";
+                    for (int j = 0; j < tempArray.Count; j++)
+                    {
+                        fin += tempArray[j];
+                    }
+                    finalArrayc.Add(fin);
+                    tempArray.Clear();
+                }
+
+                for (int x = 0; x < finalArrayc.Count; x++)
+                {
+                    string token = finalArrayc[x].ToString();
+                    Match operators = operatorReg.Match(token);
+                    Match variables = variableReg.Match(token);
+                    Match digits = constantReg.Match(token);
+                    Match punctuations = specialReg.Match(token);
+
+                    if (operators.Success)
+                    {
+                        tokensList.Add($"<op, {token}>");
+                    }
+                    else if (digits.Success)
+                    {
+                        tokensList.Add($"<digit, {token}>");
+                    }
+                    else if (punctuations.Success)
+                    {
+                        tokensList.Add($"<punc, {token}>");
+                    }
+                    else if (variables.Success)
+                    {
+                        if (!keywordList.Contains(token))
+                        {
+                            Regex reg1 = new Regex(@"^(int|float)\s([A-Za-z_][A-Za-z0-9]*)\s(=)\s([0-9]+(\.[0-9]+)?)\s(;)$");
+                            Match category1 = reg1.Match(line);
+
+                            if (category1.Success && row < 20)
+                            {
+                                SymbolTable[row, 0] = row.ToString();
+                                SymbolTable[row, 1] = token;
+                                SymbolTable[row, 2] = finalArrayc[x - 1].ToString();
+                                SymbolTable[row, 3] = finalArrayc[x + 2].ToString();
+                                SymbolTable[row, 4] = actualLineNum.ToString();
+
+                                tokensList.Add($"<var{count}, {row}>");
+                                symbolTableOutput.Add($"{SymbolTable[row, 0]}\t{SymbolTable[row, 1]}\t{SymbolTable[row, 2]}\t{SymbolTable[row, 3]}\t{SymbolTable[row, 4]}");
+                                row++;
+                                count++;
+                            }
+                            else
+                            {
+                                bool found = false;
+                                for (int r = 1; r < row; r++)
+                                {
+                                    if (SymbolTable[r, 1] == token)
+                                    {
+                                        tokensList.Add($"<var{r}, {r}>");
+                                        found = true;
+                                        break;
+                                    }
+                                }
+                                if (!found)
+                                {
+                                    tokensList.Add($"<identifier, {token}>");
+                                }
+                            }
+                        }
+                        else
+                        {
+                            tokensList.Add($"<keyword, {token}>");
+                        }
+                    }
+                }
+            }
+
+            Console.WriteLine("\n=== Tokens ===");
+            foreach (string token in tokensList)
+            {
+                Console.WriteLine(token);
+            }
+
+            Console.WriteLine("\n=== Symbol Table ===");
+            Console.WriteLine("Index\tName\tType\tValue\tLine");
+            Console.WriteLine("-----\t----\t----\t-----\t----");
+            if (symbolTableOutput.Count == 0)
+            {
+                Console.WriteLine("(No variables)");
+            }
+            else
+            {
+                foreach (string entry in symbolTableOutput)
+                {
+                    Console.WriteLine(entry);
+                }
+            }
         }
     }
 }
+
